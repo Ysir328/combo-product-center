@@ -1,6 +1,8 @@
 import { HashRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ToastProvider } from './context/ToastContext';
 import Layout from './components/layout/Layout';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 import HomePage from './pages/home/HomePage';
 import ProductListPage from './pages/product/ProductListPage';
 import ProductDetailPage from './pages/product/ProductDetailPage';
@@ -32,30 +34,53 @@ function NotFound() {
 export default function App() {
   return (
     <AuthProvider>
-      <HashRouter>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/products" element={<ProductListPage />} />
-            <Route path="/products/:id" element={<ProductDetailPage />} />
-            <Route path="/marketing" element={<MarketingDashboard />} />
-            <Route path="/internal" element={<InternalDocList />} />
-            <Route path="/internal/:id" element={<InternalDocView />} />
-            <Route path="/admin" element={<AdminLayout />}>
-              <Route index element={<ProductManage />} />
-              <Route path="products" element={<ProductManage />} />
-              <Route path="content" element={<ContentManage />} />
-              <Route path="audit" element={<AuditFlow />} />
-              <Route path="users" element={<UserManage />} />
-              <Route path="logs" element={<LogViewer />} />
-            </Route>
-            <Route path="/search" element={<SearchResultsPage />} />
-            <Route path="/announcements" element={<AnnouncementsPage />} />
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </Layout>
-      </HashRouter>
+      <ToastProvider>
+        <HashRouter>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/products" element={<ProductListPage />} />
+              <Route path="/products/:id" element={<ProductDetailPage />} />
+              <Route path="/marketing" element={<MarketingDashboard />} />
+              <Route
+                path="/internal"
+                element={
+                  <ProtectedRoute permission="internal:view">
+                    <InternalDocList />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/internal/:id"
+                element={
+                  <ProtectedRoute permission="internal:view">
+                    <InternalDocView />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute permission="internal:edit">
+                    <AdminLayout />
+                  </ProtectedRoute>
+                }
+              >
+                <Route index element={<ProductManage />} />
+                <Route path="products" element={<ProductManage />} />
+                <Route path="content" element={<ContentManage />} />
+                <Route path="audit" element={<AuditFlow />} />
+                <Route path="users" element={<UserManage />} />
+                <Route path="logs" element={<LogViewer />} />
+              </Route>
+              <Route path="/search" element={<SearchResultsPage />} />
+              <Route path="/announcements" element={<AnnouncementsPage />} />
+              <Route path="/auth" element={<AuthPage />} />
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </Layout>
+        </HashRouter>
+      </ToastProvider>
     </AuthProvider>
   );
 }

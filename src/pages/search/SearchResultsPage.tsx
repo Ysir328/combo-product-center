@@ -1,11 +1,12 @@
 import { useSearchParams, Link } from 'react-router-dom';
 import { useMemo } from 'react';
 import { BookOpen, BarChart3, FolderLock, Bell, ChevronRight, Lock } from 'lucide-react';
-import { products } from '../../data/products';
-import { marketingMaterials } from '../../data/marketing';
-import { internalDocuments } from '../../data/internal';
-import { announcements } from '../../data/announcements';
+import { useProducts } from '../../hooks/useProducts';
+import { useMarketingMaterials } from '../../hooks/useMarketingMaterials';
+import { useInternalDocuments } from '../../hooks/useInternalDocuments';
+import { useAnnouncements } from '../../hooks/useAnnouncements';
 import { useAuth } from '../../context/AuthContext';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
 import EmptyState from '../../components/common/EmptyState';
 import type { SearchResult } from '../../types';
 
@@ -14,46 +15,34 @@ export default function SearchResultsPage() {
   const query = searchParams.get('q') || '';
   const { hasPermission } = useAuth();
 
+  const { data: products, loading: pLoading } = useProducts();
+  const { data: materials, loading: mLoading } = useMarketingMaterials();
+  const { data: docs, loading: dLoading } = useInternalDocuments();
+  const { data: announcements, loading: aLoading } = useAnnouncements();
+
+  const isLoading = pLoading || mLoading || dLoading || aLoading;
+
   const results = useMemo((): SearchResult[] => {
     if (!query.trim()) return [];
-
     const q = query.toLowerCase();
     const all: SearchResult[] = [];
 
-    // Products
-    products.forEach((p) => {
+    products.forEach(p => {
       if (p.name.includes(q) || p.shortName.includes(q) || p.oneLiner.includes(q) || p.type.includes(q)) {
-        all.push({
-          id: p.id,
-          type: 'product',
-          title: p.name,
-          summary: p.oneLiner,
-          url: `/products/${p.id}`,
-          requiresAuth: false,
-        });
+        all.push({ id: p.id, type: 'product', title: p.name, summary: p.oneLiner, url: `/products/${p.id}`, requiresAuth: false });
       }
     });
 
-    // Marketing materials
-    marketingMaterials.forEach((m) => {
+    materials.forEach(m => {
       if (m.title.includes(q) || m.description.includes(q)) {
-        all.push({
-          id: m.id,
-          type: 'marketing',
-          title: m.title,
-          summary: m.description,
-          url: '/marketing',
-          requiresAuth: false,
-        });
+        all.push({ id: m.id, type: 'marketing', title: m.title, summary: m.description, url: '/marketing', requiresAuth: false });
       }
     });
 
-    // Internal documents (only if authorized)
-    internalDocuments.forEach((d) => {
-      if (d.title.includes(q) || d.tags.some((t) => t.includes(q)) || d.description.includes(q)) {
+    docs.forEach(d => {
+      if (d.title.includes(q) || d.tags.some(t => t.includes(q)) || d.description.includes(q)) {
         all.push({
-          id: d.id,
-          type: 'internal',
+          id: d.id, type: 'internal',
           title: hasPermission('internal:view') ? d.title : '******（需登录查看）',
           summary: hasPermission('internal:view') ? d.description : '此资料仅对内部授权人员开放',
           url: hasPermission('internal:view') ? `/internal/${d.id}` : '/auth',
@@ -62,31 +51,18 @@ export default function SearchResultsPage() {
       }
     });
 
-    // Announcements
-    announcements.forEach((a) => {
+    announcements.forEach(a => {
       if (a.title.includes(q) || a.content.includes(q)) {
-        all.push({
-          id: a.id,
-          type: 'announcement',
-          title: a.title,
-          summary: a.content.slice(0, 100) + '...',
-          url: '/announcements',
-          requiresAuth: false,
-        });
+        all.push({ id: a.id, type: 'announcement', title: a.title, summary: a.content.slice(0, 100) + '...', url: '/announcements', requiresAuth: false });
       }
     });
 
     return all;
-  }, [query, hasPermission]);
+  }, [query, hasPermission, products, materials, docs, announcements]);
 
   const groupedResults = useMemo(() => {
-    const groups: Record<string, SearchResult[]> = {
-      product: [],
-      marketing: [],
-      internal: [],
-      announcement: [],
-    };
-    results.forEach((r) => groups[r.type]?.push(r));
+    const groups: Record<string, SearchResult[]> = { product: [], marketing: [], internal: [], announcement: [] };
+    results.forEach(r => groups[r.type]?.push(r));
     return groups;
   }, [results]);
 
@@ -96,6 +72,10 @@ export default function SearchResultsPage() {
     internal: { label: '内部资料', icon: FolderLock, color: 'text-internal' },
     announcement: { label: '公告通知', icon: Bell, color: 'text-gray-500' },
   };
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-[60vh]"><LoadingSpinner size="lg" text="搜索中..." /></div>;
+  }
 
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -109,11 +89,7 @@ export default function SearchResultsPage() {
       </p>
 
       {results.length === 0 && query ? (
-        <EmptyState
-          title="未找到相关结果"
-          description="请尝试调整搜索关键词"
-          icon="Search"
-        />
+        <EmptyState title="未找到相关结果" description="请尝试调整搜索关键词" icon="Search" />
       ) : (
         <div className="space-y-8">
           {Object.entries(groupedResults).map(([type, items]) => {
@@ -128,7 +104,7 @@ export default function SearchResultsPage() {
                   <span className="text-xs text-gray-400">({items.length})</span>
                 </div>
                 <div className="space-y-2">
-                  {items.map((item) => (
+                  {items.map(item => (
                     <Link
                       key={item.id}
                       to={item.url}
@@ -138,13 +114,11 @@ export default function SearchResultsPage() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             <h4 className="font-medium text-gray-900">{item.title}</h4>
-                            {item.requiresAuth && (
-                              <Lock className="w-3 h-3 text-internal" />
-                            )}
+                            {item.requiresAuth && <Lock className="w-3 h-3 text-internal" />}
                           </div>
                           <p className="text-sm text-gray-500 mt-1 line-clamp-2">{item.summary}</p>
                         </div>
-                        <ChevronRight className="w-4 h-4 text-gray-300 mt-1" />
+                        <ChevronRight className="w-4 h-4 text-gray-300 mt-1 shrink-0" />
                       </div>
                     </Link>
                   ))}
